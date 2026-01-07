@@ -48,6 +48,7 @@ class FileParser:
             '.zip': [b'PK\x03\x04'],
             '.docx': [b'PK\x03\x04'],
             '.mp3': [b'ID3'],
+            '.wav': [b'RIFF'],
         }
         
         if extension not in signatures:

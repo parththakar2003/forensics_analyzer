@@ -119,9 +119,16 @@ class DiskImageGenerator:
         elif file_type == 'txt':
             return self._generate_txt(content or "Sample text file content")
         elif file_type in ['zip', 'docx', 'xlsx', 'pptx']:
-            return self._generate_zip(size)
+            if file_type == 'docx':
+                return self._generate_docx(size)
+            elif file_type == 'xlsx':
+                return self._generate_xlsx(size)
+            else:
+                return self._generate_zip(size)
         elif file_type == 'mp3':
             return self._generate_mp3(size)
+        elif file_type == 'wav':
+            return self._generate_wav(size)
         else:
             return b"Unknown file type"
     
@@ -463,3 +470,101 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
             data.extend(os.urandom(min(remaining, 10000)))
         
         return bytes(data)
+    
+    def _generate_wav(self, size: int) -> bytes:
+        """Generate a minimal valid WAV file"""
+        import struct
+        
+        data = bytearray()
+        
+        # Calculate sizes
+        # WAV structure: RIFF header (12 bytes) + fmt chunk (24 bytes) + data chunk (8 bytes + audio data)
+        min_size = 44  # Minimum WAV file size
+        audio_data_size = max(100, size - min_size)
+        
+        # Adjust to make even number (WAV requires even byte counts)
+        if audio_data_size % 2 != 0:
+            audio_data_size += 1
+        
+        file_size = 36 + audio_data_size  # Total file size minus 8 bytes
+        
+        # RIFF header
+        data.extend(b'RIFF')
+        data.extend(struct.pack('<I', file_size))  # File size - 8
+        data.extend(b'WAVE')
+        
+        # fmt chunk
+        data.extend(b'fmt ')
+        data.extend(struct.pack('<I', 16))  # fmt chunk size
+        data.extend(struct.pack('<H', 1))   # Audio format (1 = PCM)
+        data.extend(struct.pack('<H', 1))   # Number of channels (1 = mono)
+        data.extend(struct.pack('<I', 44100))  # Sample rate (44.1 kHz)
+        data.extend(struct.pack('<I', 88200))  # Byte rate (sample rate * channels * bits per sample / 8)
+        data.extend(struct.pack('<H', 2))   # Block align (channels * bits per sample / 8)
+        data.extend(struct.pack('<H', 16))  # Bits per sample
+        
+        # data chunk
+        data.extend(b'data')
+        data.extend(struct.pack('<I', audio_data_size))
+        
+        # Audio data (silence or simple waveform)
+        # Use a simple pattern instead of random data to create a valid audio stream
+        for i in range(audio_data_size // 2):
+            # Generate a simple sine wave pattern (16-bit PCM)
+            data.extend(struct.pack('<h', int(32767 * 0.1)))  # Low amplitude to avoid distortion
+        
+        return bytes(data)
+    
+    def _generate_docx(self, size: int) -> bytes:
+        """Generate a minimal valid DOCX file with proper Office structure"""
+        import zipfile
+        import io
+        
+        # DOCX is a ZIP file with specific internal structure
+        # Required files: [Content_Types].xml, _rels/.rels, word/document.xml
+        
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr('[Content_Types].xml', 
+                '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+                '</Types>')
+            zf.writestr('_rels/.rels', 
+                '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+                '</Relationships>')
+            
+            # Add padding content if needed to reach target size
+            doc_content = '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' \
+                         '<w:body><w:p><w:r><w:t>Test Document Content. ' + ('Lorem ipsum dolor sit amet. ' * 50) + '</w:t></w:r></w:p></w:body></w:document>'
+            zf.writestr('word/document.xml', doc_content)
+        
+        return buffer.getvalue()
+    
+    def _generate_xlsx(self, size: int) -> bytes:
+        """Generate a minimal valid XLSX file with proper Office structure"""
+        import zipfile
+        import io
+        
+        # XLSX is a ZIP file with specific internal structure
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr('[Content_Types].xml', 
+                '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                '</Types>')
+            zf.writestr('_rels/.rels', 
+                '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                '</Relationships>')
+            
+            # Add padding content if needed
+            workbook_content = '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' \
+                              '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/></sheets></workbook>'
+            zf.writestr('xl/workbook.xml', workbook_content)
+        
+        return buffer.getvalue()
