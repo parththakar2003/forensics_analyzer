@@ -192,9 +192,8 @@ class FileCarver:
                     break
                 pos += 1
             
-            if mpeg_data_size == 0:
-                # No MPEG frames found, just use ID3 tag size
-                mpeg_data_size = 0
+            # If no MPEG frames found, mpeg_data_size remains 0
+            # which means we'll just use the ID3 tag size
             
             total_size = id3_total_size + mpeg_data_size
             # Ensure we don't exceed data length
