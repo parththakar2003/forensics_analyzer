@@ -1,0 +1,3 @@
+# No external dependencies required for basic functionality
+# Optional: Install binwalk for advanced analysis
+# pip install binwalk

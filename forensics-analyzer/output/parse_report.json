@@ -1,0 +1,42 @@
+[
+  {
+    "name": "jpg_000000.jpg",
+    "path": "d:\\hapi mam project\\forensics-analyzer\\output\\carved_files\\jpg_000000.jpg",
+    "size": 34482,
+    "extension": ".jpg",
+    "created": 1764173327.9129534,
+    "modified": 1764173327.9194858,
+    "header": "ffd8ffe000104a464946000101000001",
+    "is_valid": true
+  },
+  {
+    "name": "mp3_000002.mp3",
+    "path": "d:\\hapi mam project\\forensics-analyzer\\output\\carved_files\\mp3_000002.mp3",
+    "size": 10384381,
+    "extension": ".mp3",
+    "created": 1764173327.9724646,
+    "modified": 1764173327.9724646,
+    "header": "49443303000000000800544954320000",
+    "is_valid": true
+  },
+  {
+    "name": "png_000001.png",
+    "path": "d:\\hapi mam project\\forensics-analyzer\\output\\carved_files\\png_000001.png",
+    "size": 1089,
+    "extension": ".png",
+    "created": 1764173327.929373,
+    "modified": 1764173327.929373,
+    "header": "89504e470d0a1a0a0000000d49484452",
+    "is_valid": true
+  },
+  {
+    "name": "txt_000003.txt",
+    "path": "d:\\hapi mam project\\forensics-analyzer\\output\\carved_files\\txt_000003.txt",
+    "size": 10400510,
+    "extension": ".txt",
+    "created": 1764173328.0039177,
+    "modified": 1764173328.0048497,
+    "header": "4c6f72656d20697073756d20646f6c6f",
+    "is_valid": true
+  }
+]
