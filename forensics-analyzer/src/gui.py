@@ -6,11 +6,14 @@ import json
 from datetime import datetime
 import hashlib
 import os
+import subprocess
+import platform
 
 from disk_image_generator import DiskImageGenerator
 from file_carver import FileCarver
 from file_parser import FileParser
 from binwalk_analyzer import BinwalkAnalyzer
+from verify_files import verify_file
 
 __version__ = "2.0.0"
 __author__ = "Parth Thakar"
@@ -902,8 +905,6 @@ and regulations when using this software.
             
     def open_output_folder(self):
         """Open output folder in file explorer"""
-        import subprocess
-        
         output_dir = self.base_dir / "output"
         output_dir.mkdir(exist_ok=True)
         
@@ -1285,7 +1286,18 @@ and regulations when using this software.
         self.log(f"    SHA-256: {sha256_hash}")
     
     def _calculate_file_hash(self, file_path, algorithm='md5'):
-        """Calculate file hash"""
+        """Calculate file hash with path validation"""
+        # Validate path is within base directory or output directory
+        try:
+            file_path = file_path.resolve()
+            base_resolved = self.base_dir.resolve()
+            
+            # Check if file is within the base directory
+            if not str(file_path).startswith(str(base_resolved)):
+                return "Invalid path"
+        except (OSError, ValueError):
+            return "Error"
+        
         if algorithm == 'md5':
             hasher = hashlib.md5()
         elif algorithm == 'sha256':
@@ -1293,11 +1305,13 @@ and regulations when using this software.
         else:
             return "Unknown algorithm"
         
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b''):
-                hasher.update(chunk)
-        
-        return hasher.hexdigest()
+        try:
+            with open(file_path, 'rb') as f:
+                for chunk in iter(lambda: f.read(4096), b''):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except (IOError, OSError):
+            return "Error"
     
     def _copy_to_clipboard(self, text):
         """Copy text to clipboard"""
@@ -1316,8 +1330,6 @@ and regulations when using this software.
         self.log("\n" + "=" * 60)
         self.log("VERIFYING CARVED FILES")
         self.log("=" * 60)
-        
-        from verify_files import verify_file
         
         files = list(output_dir.glob("*.*"))
         if not files:
@@ -1345,7 +1357,7 @@ and regulations when using this software.
                            f"Valid: {valid_count}\nInvalid: {invalid_count}")
     
     def preview_selected_file(self):
-        """Preview selected file"""
+        """Preview selected file with path validation"""
         selection = self.results_tree.selection()
         if not selection:
             messagebox.showinfo("No Selection", "Please select a file to preview.")
@@ -1354,23 +1366,37 @@ and regulations when using this software.
         item = self.results_tree.item(selection[0])
         file_path = item['values'][5] if len(item['values']) > 5 else None
         
-        if not file_path or not Path(file_path).exists():
-            messagebox.showerror("Error", "File not found or invalid path.")
+        if not file_path:
+            messagebox.showerror("Error", "File path not found.")
+            return
+        
+        # Validate path
+        try:
+            file_path_obj = Path(file_path).resolve()
+            base_resolved = self.base_dir.resolve()
+            
+            # Check if file is within the base directory
+            if not str(file_path_obj).startswith(str(base_resolved)):
+                messagebox.showerror("Error", "Invalid file path.")
+                return
+            
+            if not file_path_obj.exists():
+                messagebox.showerror("Error", "File not found.")
+                return
+        except (OSError, ValueError):
+            messagebox.showerror("Error", "Invalid file path.")
             return
         
         # Open with default application
-        import subprocess
-        import platform
-        
         try:
             if platform.system() == 'Windows':
-                os.startfile(file_path)
+                os.startfile(file_path_obj)
             elif platform.system() == 'Darwin':  # macOS
-                subprocess.Popen(['open', file_path])
+                subprocess.Popen(['open', str(file_path_obj)])
             else:  # Linux
-                subprocess.Popen(['xdg-open', file_path])
+                subprocess.Popen(['xdg-open', str(file_path_obj)])
             
-            self.log(f"[*] Opened file: {Path(file_path).name}")
+            self.log(f"[*] Opened file: {file_path_obj.name}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open file: {e}")
     

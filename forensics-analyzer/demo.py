@@ -7,6 +7,7 @@ This script demonstrates all major features of the forensics analyzer
 import sys
 from pathlib import Path
 import time
+import hashlib
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -165,8 +166,6 @@ def main():
     print("   ✓ Detailed forensic reports")
     
     print_section("Hash Calculation")
-    
-    import hashlib
     
     if carved_files:
         sample_file = Path(carved_files[0]['path'])
