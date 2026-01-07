@@ -263,9 +263,6 @@ class ForensicsAnalyzerGUI:
         # Configure canvas scrolling
         def _configure_scroll(event):
             canvas.configure(scrollregion=canvas.bbox('all'))
-            # Update canvas width to match the frame width
-            canvas_width = event.width
-            canvas.itemconfig(canvas_frame, width=canvas_width)
         
         left_frame.bind('<Configure>', _configure_scroll)
         canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
@@ -274,15 +271,8 @@ class ForensicsAnalyzerGUI:
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        # Bind mousewheel to canvas and all child widgets
-        def _bind_to_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_from_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-        
-        canvas.bind('<Enter>', _bind_to_mousewheel)
-        canvas.bind('<Leave>', _unbind_from_mousewheel)
+        # Bind mousewheel to canvas (not bind_all to avoid conflicts)
+        canvas.bind("<MouseWheel>", _on_mousewheel)
         
         # Automated Workflow Section
         auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
@@ -730,18 +720,11 @@ and regulations when using this software.
         about_content.bind('<Configure>', _configure_about_scroll)
         about_canvas.bind('<Configure>', lambda e: about_canvas.itemconfig(about_canvas_frame, width=e.width))
         
-        # Enable mousewheel scrolling for about tab
+        # Enable mousewheel scrolling for about tab (bound to canvas only)
         def _on_about_mousewheel(event):
             about_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        def _bind_about_mousewheel(event):
-            about_canvas.bind_all("<MouseWheel>", _on_about_mousewheel)
-        
-        def _unbind_about_mousewheel(event):
-            about_canvas.unbind_all("<MouseWheel>")
-        
-        about_canvas.bind('<Enter>', _bind_about_mousewheel)
-        about_canvas.bind('<Leave>', _unbind_about_mousewheel)
+        about_canvas.bind("<MouseWheel>", _on_about_mousewheel)
         
     def create_footer(self):
         """Create footer with status"""
