@@ -20,6 +20,9 @@ __version__ = "2.0.0"
 __author__ = "Parth Thakar"
 __project__ = "Forensics Analyzer - Major Project"
 
+# Constants for scroll configuration
+WINDOWS_SCROLL_DIVISOR = 120  # Windows mousewheel delta divisor
+
 class ForensicsAnalyzerGUI:
     def __init__(self, root):
         self.root = root
@@ -66,12 +69,20 @@ class ForensicsAnalyzerGUI:
         """
         # Configure scroll region when content changes
         def configure_scroll(event):
-            canvas.configure(scrollregion=canvas.bbox('all'))
+            bbox = canvas.bbox('all')
+            if bbox:  # Only configure if bbox is valid
+                canvas.configure(scrollregion=bbox)
         
         content_frame.bind('<Configure>', configure_scroll)
         
         # Configure canvas width to match window
-        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
+        def resize_canvas(event):
+            try:
+                canvas.itemconfig(canvas_frame, width=event.width)
+            except tk.TclError:
+                pass  # Ignore if canvas_frame doesn't exist
+        
+        canvas.bind('<Configure>', resize_canvas)
         
         # Add cross-platform mousewheel support
         self._create_mousewheel_binding(canvas)
@@ -85,7 +96,7 @@ class ForensicsAnalyzerGUI:
         def on_mousewheel(event):
             # Cross-platform mousewheel handling
             if platform.system() == 'Windows':
-                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                canvas.yview_scroll(int(-1*(event.delta/WINDOWS_SCROLL_DIVISOR)), "units")
             elif platform.system() == 'Darwin':  # macOS
                 canvas.yview_scroll(int(-1*event.delta), "units")
             else:  # Linux
