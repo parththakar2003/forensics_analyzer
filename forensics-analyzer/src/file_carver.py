@@ -109,15 +109,11 @@ class FileCarver:
                         continue
                     
                     # Get file size from RIFF header (bytes 4-7)
-                    if start_pos + 8 <= len(data):
-                        file_size = struct.unpack('<I', data[start_pos + 4:start_pos + 8])[0]
-                        # The size in the header is file_size - 8 (excludes RIFF and size field)
-                        end_pos = start_pos + 8 + file_size
-                        # Make sure we don't go beyond the data
-                        end_pos = min(end_pos, len(data))
-                    else:
-                        start = start_pos + 1
-                        continue
+                    file_size = struct.unpack('<I', data[start_pos + 4:start_pos + 8])[0]
+                    # The size in the header is file_size - 8 (excludes RIFF and size field)
+                    end_pos = start_pos + 8 + file_size
+                    # Make sure we don't go beyond the data
+                    end_pos = min(end_pos, len(data))
                 else:
                     start = start_pos + 1
                     continue

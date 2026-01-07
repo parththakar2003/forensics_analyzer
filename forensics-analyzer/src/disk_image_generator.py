@@ -499,11 +499,18 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
         data.extend(b'fmt ')
         data.extend(struct.pack('<I', 16))  # fmt chunk size
         data.extend(struct.pack('<H', 1))   # Audio format (1 = PCM)
-        data.extend(struct.pack('<H', 1))   # Number of channels (1 = mono)
-        data.extend(struct.pack('<I', 44100))  # Sample rate (44.1 kHz)
-        data.extend(struct.pack('<I', 88200))  # Byte rate (sample rate * channels * bits per sample / 8)
-        data.extend(struct.pack('<H', 2))   # Block align (channels * bits per sample / 8)
-        data.extend(struct.pack('<H', 16))  # Bits per sample
+        
+        channels = 1
+        sample_rate = 44100
+        bits_per_sample = 16
+        
+        data.extend(struct.pack('<H', channels))   # Number of channels
+        data.extend(struct.pack('<I', sample_rate))  # Sample rate
+        byte_rate = sample_rate * channels * bits_per_sample // 8
+        data.extend(struct.pack('<I', byte_rate))  # Byte rate
+        block_align = channels * bits_per_sample // 8
+        data.extend(struct.pack('<H', block_align))   # Block align
+        data.extend(struct.pack('<H', bits_per_sample))  # Bits per sample
         
         # data chunk
         data.extend(b'data')
