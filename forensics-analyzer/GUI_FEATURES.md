@@ -87,6 +87,8 @@
 ```
 
 ### Features
+- **Scrollable Content:** Left panel with vertical scrollbar for easy navigation
+- **Mousewheel Support:** Smooth scrolling with mouse wheel
 - **Image Size Selector:** Spin box for MB selection
 - **File Type Checkboxes:** Multi-select file types
 - **Path Browsers:** File/folder selection dialogs
@@ -159,6 +161,7 @@
 │  │ Author: Parth Thakar                           │  │
 │  │                                                  │  │
 │  │ Features, Technology Stack, File Types...       │  │
+│  │ (Scrollable content with mousewheel support)   │  │
 │  └─────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
