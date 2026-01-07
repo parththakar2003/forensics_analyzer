@@ -56,6 +56,26 @@ class ForensicsAnalyzerGUI:
         # Keyboard shortcuts
         self.setup_shortcuts()
         
+    def _setup_scrollable_canvas(self, canvas, canvas_frame, content_frame):
+        """Setup scrolling configuration for a canvas with content.
+        
+        Args:
+            canvas: The canvas widget
+            canvas_frame: The canvas window frame ID
+            content_frame: The frame containing the content
+        """
+        # Configure scroll region when content changes
+        def configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox('all'))
+        
+        content_frame.bind('<Configure>', configure_scroll)
+        
+        # Configure canvas width to match window
+        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
+        
+        # Add cross-platform mousewheel support
+        self._create_mousewheel_binding(canvas)
+    
     def _create_mousewheel_binding(self, canvas):
         """Create cross-platform mousewheel binding for a canvas.
         
@@ -285,15 +305,8 @@ class ForensicsAnalyzerGUI:
         # Create window in canvas
         canvas_frame = canvas.create_window((0, 0), window=left_frame, anchor='nw')
         
-        # Configure canvas scrolling
-        def _configure_scroll(event):
-            canvas.configure(scrollregion=canvas.bbox('all'))
-        
-        left_frame.bind('<Configure>', _configure_scroll)
-        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
-        
-        # Enable cross-platform mousewheel scrolling
-        self._create_mousewheel_binding(canvas)
+        # Setup scrolling and mousewheel support
+        self._setup_scrollable_canvas(canvas, canvas_frame, left_frame)
         
         # Automated Workflow Section
         auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
@@ -734,15 +747,8 @@ and regulations when using this software.
                                font=('Segoe UI', 10))
         about_label.pack()
         
-        # Configure about canvas scrolling
-        def _configure_about_scroll(event):
-            about_canvas.configure(scrollregion=about_canvas.bbox('all'))
-        
-        about_content.bind('<Configure>', _configure_about_scroll)
-        about_canvas.bind('<Configure>', lambda e: about_canvas.itemconfig(about_canvas_frame, width=e.width))
-        
-        # Enable cross-platform mousewheel scrolling
-        self._create_mousewheel_binding(about_canvas)
+        # Setup scrolling and mousewheel support
+        self._setup_scrollable_canvas(about_canvas, about_canvas_frame, about_content)
         
     def create_footer(self):
         """Create footer with status"""
