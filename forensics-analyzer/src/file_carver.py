@@ -15,7 +15,7 @@ class FileCarver:
         "zip":  [(b"PK\x03\x04", b"PK\x05\x06")],
         "docx": [(b"PK\x03\x04", b"PK\x05\x06")],
         "xlsx": [(b"PK\x03\x04", b"PK\x05\x06")],
-        "mp3":  [(b"ID3", None)],
+        "mp3":  [(b"ID3\x03", None), (b"ID3\x04", None)],  # ID3v2.3 and ID3v2.4
         "txt":  [(b"Forensics Analyzer", None)],
     }
     
