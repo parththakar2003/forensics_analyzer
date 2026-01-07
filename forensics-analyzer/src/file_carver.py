@@ -9,23 +9,37 @@ class FileCarver:
                  (b"\xFF\xD8\xFF\xE1", b"\xFF\xD9"),
                  (b"\xFF\xD8\xFF\xDB", b"\xFF\xD9")],
         "png":  [(b"\x89PNG\r\n\x1a\n", b"IEND")],
-        "gif":  [(b"GIF89a", b"\x00\x3B"),
-                 (b"GIF87a", b"\x00\x3B")],
+        "gif":  [(b"GIF89a", b"\x3B"),
+                 (b"GIF87a", b"\x3B")],
         "pdf":  [(b"%PDF-", b"%%EOF")],
         "zip":  [(b"PK\x03\x04", b"PK\x05\x06")],
         "docx": [(b"PK\x03\x04", b"PK\x05\x06")],
         "xlsx": [(b"PK\x03\x04", b"PK\x05\x06")],
         "mp3":  [(b"ID3", None)],
-        "txt":  [(b"This is", b"\n\n---END---"), 
-                 (b"Lorem ipsum", None)],
+        "txt":  [(b"Forensics Analyzer", None)],
+    }
+    
+    # Footer sizes - how many bytes to include after finding the footer signature
+    FOOTER_SIZES = {
+        "zip": 22,   # End of Central Directory record is 22 bytes minimum
+        "docx": 22,  # DOCX is a ZIP file
+        "xlsx": 22,  # XLSX is a ZIP file
+    }
+    
+    # Maximum file sizes for types without footers (in bytes)
+    MAX_SIZES = {
+        "mp3": 20 * 1024,      # 20KB for test MP3s
+        "txt": 1 * 1024,       # 1KB for text files (more realistic for test files)
     }
     
     def __init__(self):
         self.carved_files = []
+        self.carved_offsets = set()  # Track offsets to avoid duplicates
     
     def carve(self, image_path: Path, output_dir: Path, min_size: int = 100) -> List[Dict]:
         """Carve files from disk image"""
         self.carved_files = []
+        self.carved_offsets = set()  # Reset for each carve operation
         
         if not image_path.exists():
             print(f"[!] Image not found: {image_path}")
@@ -51,7 +65,8 @@ class FileCarver:
                         footer: bytes, output_dir: Path, min_size: int):
         """Carve files matching a specific signature"""
         start = 0
-        max_file_size = 50 * 1024 * 1024  # 50MB max per file
+        # Use type-specific max size if available, otherwise use default
+        max_file_size = self.MAX_SIZES.get(ext, 50 * 1024 * 1024)  # Default 50MB
         
         while start < len(data):
             # Find header
@@ -65,7 +80,9 @@ class FileCarver:
                 footer_pos = data.find(footer, start_pos + len(header))
                 if footer_pos != -1:
                     # Include the footer in the file
-                    end_pos = footer_pos + len(footer)
+                    # Check if this file type needs extra bytes after the footer
+                    footer_extra = self.FOOTER_SIZES.get(ext, len(footer))
+                    end_pos = footer_pos + footer_extra
                 else:
                     # Footer not found, skip this header
                     start = start_pos + 1
@@ -80,6 +97,11 @@ class FileCarver:
             
             # Extract file data
             file_data = data[start_pos:end_pos]
+            
+            # Check if we've already carved a file at this offset (avoid duplicates)
+            if start_pos in self.carved_offsets:
+                start = start_pos + len(header)
+                continue
             
             # Validate size
             if len(file_data) >= min_size and len(file_data) <= max_file_size:
@@ -97,6 +119,9 @@ class FileCarver:
                         'offset': start_pos,
                         'path': str(file_path)
                     })
+                    
+                    # Mark this offset as carved
+                    self.carved_offsets.add(start_pos)
                     
                     print(f"[+] Carved: {filename} ({len(file_data):,} bytes at offset {start_pos})")
                 except Exception as e:

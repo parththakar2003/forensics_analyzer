@@ -160,8 +160,11 @@ class DiskImageGenerator:
             data.extend(b'\x00\x0C')
             data.extend(b'\x03\x01\x00\x02\x11\x03\x11\x00\x3F\x00')
             
-            # Fake compressed data
-            data.extend(os.urandom(remaining - 50))
+            # Fake compressed data - use predictable pattern to avoid accidental EOI markers
+            # Avoid 0xFF 0xD9 sequence by using safe byte patterns
+            chunk = b'\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE'
+            padding_needed = remaining - 50
+            data.extend((chunk * ((padding_needed // len(chunk)) + 1))[:padding_needed])
         
         # EOI (End of Image)
         data.extend(b'\xFF\xD9')
@@ -237,10 +240,32 @@ class DiskImageGenerator:
         data.extend(b'\x10\x00\x10\x00')  # Width, Height
         data.extend(b'\x00')              # Flags
         
-        # Image Data
-        data.extend(b'\x02')  # LZW Minimum Code Size
-        data.extend(b'\x02')  # Block Size
-        data.extend(b'\x4C\x01')  # Compressed data
+        # Image Data - pad to requested size if needed
+        current_size = len(data)
+        remaining = max(0, size - current_size - 2)  # -2 for block terminator and trailer
+        
+        if remaining > 10:
+            # Add padding as image data blocks
+            data.extend(b'\x02')  # LZW Minimum Code Size
+            
+            # Add data in blocks (max 255 bytes per block)
+            while remaining > 260:
+                data.extend(b'\xFF')  # Block size 255
+                data.extend(b'\x4C\x01' * 127)  # Fill with repeated pattern (254 bytes)
+                data.extend(b'\x4C')  # One more byte
+                remaining -= 256
+            
+            if remaining > 5:
+                block_size = min(255, remaining - 2)
+                data.extend(bytes([block_size]))
+                data.extend(b'\x4C\x01' * (block_size // 2))
+                if block_size % 2:
+                    data.extend(b'\x4C')
+        else:
+            data.extend(b'\x02')  # LZW Minimum Code Size
+            data.extend(b'\x02')  # Block Size
+            data.extend(b'\x4C\x01')  # Compressed data
+        
         data.extend(b'\x00')  # Block Terminator
         
         # Trailer
@@ -334,6 +359,11 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
         
         data = bytearray()
         
+        # Calculate how much content we need
+        # A minimal ZIP with one file has a fixed overhead, we'll pad the file content
+        base_overhead = 100  # Approximate overhead for ZIP structure
+        content_size = max(40, size - base_overhead)
+        
         # Local file header
         data.extend(b'PK\x03\x04')  # Signature
         data.extend(b'\x14\x00')    # Version
@@ -346,8 +376,9 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
         dos_date = ((t.tm_year - 1980) << 9) | (t.tm_mon << 5) | t.tm_mday
         data.extend(struct.pack('<HH', dos_time, dos_date))
         
-        # File content
-        file_content = b'This is a test file in the ZIP archive.'
+        # File content - pad to requested size
+        base_content = b'This is a test file in the ZIP archive. '
+        file_content = (base_content * ((content_size // len(base_content)) + 1))[:content_size]
         
         # CRC-32
         import zlib
