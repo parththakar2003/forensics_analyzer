@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 import hashlib
 import os
-import sys
 
 from disk_image_generator import DiskImageGenerator
 from file_carver import FileCarver
@@ -28,7 +27,7 @@ class ForensicsAnalyzerGUI:
         try:
             # This will work if an icon file exists
             self.root.iconbitmap('icon.ico')
-        except:
+        except (tk.TclError, FileNotFoundError):
             pass
         
         # Variables
@@ -870,7 +869,7 @@ and regulations when using this software.
                 if path and Path(path).exists():
                     try:
                         file_hash = self._calculate_file_hash(Path(path), 'md5')[:16] + "..."
-                    except:
+                    except (IOError, OSError):
                         pass
                 
                 self.results_tree.insert('', 'end', text=str(idx+1),
@@ -903,7 +902,6 @@ and regulations when using this software.
             
     def open_output_folder(self):
         """Open output folder in file explorer"""
-        import os
         import subprocess
         
         output_dir = self.base_dir / "output"
@@ -1164,7 +1162,7 @@ and regulations when using this software.
             if file_path and Path(file_path).exists():
                 try:
                     file_hash = self._calculate_file_hash(Path(file_path), 'md5')[:16] + "..."
-                except:
+                except (IOError, OSError):
                     pass
             
             html_content += f"""
@@ -1414,7 +1412,7 @@ and regulations when using this software.
                 if path and Path(path).exists():
                     try:
                         file_hash = self._calculate_file_hash(Path(path), 'md5')[:16] + "..."
-                    except:
+                    except (IOError, OSError):
                         pass
                 
                 self.results_tree.insert('', 'end', text=str(idx+1),
