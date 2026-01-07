@@ -5,7 +5,7 @@ import tempfile
 import shutil
 import os
 
-# Add parent directory to path to import from src
+# Add src directory to path for imports (required for unittest discover)
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from binwalk_analyzer import BinwalkAnalyzer
