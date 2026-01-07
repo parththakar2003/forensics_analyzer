@@ -71,14 +71,19 @@ class FileCarver:
                 if ext == "mp3":
                     # Special handling for MP3 files with ID3 tags
                     # Validate ID3 header before processing
-                    if start_pos + 10 <= len(data):
-                        id3_header = data[start_pos:start_pos + 10]
-                        # Check ID3 version (should be 2.x, 3.x, or 4.x)
-                        version_major = id3_header[3]
-                        if version_major < 2 or version_major > 4:
-                            # Invalid ID3 version, skip this occurrence
-                            start = start_pos + 1
-                            continue
+                    if start_pos + 10 > len(data):
+                        # Not enough data for ID3 header, skip
+                        start = start_pos + 1
+                        continue
+                    
+                    id3_header = data[start_pos:start_pos + 10]
+                    # Check ID3 version (should be 2.x, 3.x, or 4.x)
+                    version_major = id3_header[3]
+                    if version_major < 2 or version_major > 4:
+                        # Invalid ID3 version, skip this occurrence
+                        start = start_pos + 1
+                        continue
+                    
                     end_pos = self._calculate_mp3_size(data, start_pos)
                 else:
                     # Default behavior: look for next header or use max size
@@ -120,24 +125,25 @@ class FileCarver:
                 start = start_pos + len(header)
     
     def _calculate_mp3_size(self, data: bytes, start_pos: int) -> int:
-        """Calculate the actual size of an MP3 file with ID3 tags"""
+        """Calculate the actual size of an MP3 file with ID3 tags
+        Returns the end position (not size) for use in data[start_pos:end_pos]"""
         try:
-            # Check if we have enough data for ID3 header
+            # Check if we have enough data for ID3 header (already validated by caller)
             if start_pos + 10 > len(data):
-                return start_pos + 10000  # Default fallback
+                return min(start_pos + 10000, len(data))
             
             # Read ID3 header
             id3_header = data[start_pos:start_pos + 10]
             
-            # Verify it's ID3 with valid version
+            # Verify it's ID3 with valid version (redundant check for safety)
             if id3_header[:3] != b'ID3':
-                return start_pos + 10000  # Default fallback
+                return min(start_pos + 10000, len(data))
             
             # Check ID3 version (should be 2.x, 3.x, or 4.x)
             version_major = id3_header[3]
             if version_major > 4 or version_major < 2:
                 # Invalid version, likely false positive
-                return start_pos + 10000  # Default fallback
+                return min(start_pos + 10000, len(data))
             
             # Decode synchsafe integer for tag size
             size_bytes = id3_header[6:10]
@@ -148,7 +154,7 @@ class FileCarver:
             
             # Sanity check on tag size (should be reasonable, not too large)
             if tag_size > 10 * 1024 * 1024:  # 10MB is too large for ID3 tag
-                return start_pos + 10000  # Default fallback
+                return min(start_pos + 10000, len(data))
             
             # ID3 header is 10 bytes + tag size
             id3_total_size = 10 + tag_size
@@ -157,6 +163,10 @@ class FileCarver:
             # MPEG frame sync starts with 0xFF 0xFB (or 0xFF 0xFA, 0xFF 0xF3, etc.)
             mpeg_start = start_pos + id3_total_size
             
+            # Ensure we don't go past the end of data
+            if mpeg_start >= len(data):
+                return min(start_pos + id3_total_size, len(data))
+            
             # Look for MPEG frame sync in the next few hundred bytes
             max_search = min(mpeg_start + 500, len(data))
             mpeg_data_size = 0
@@ -164,12 +174,15 @@ class FileCarver:
             # Simple approach: look for consecutive MPEG frame headers
             # or use a reasonable size based on ID3 tag
             pos = mpeg_start
-            while pos < max_search - 4:
+            # Ensure we have room to check pos+1
+            while pos + 1 < max_search:
                 if data[pos] == 0xFF and (data[pos + 1] & 0xE0) == 0xE0:
                     # Found potential MPEG frame
                     # For our generated MP3s, we add a small amount of audio data
-                    # Look for random data boundary or end of reasonable MP3 size
-                    mpeg_data_size = min(10000, len(data) - mpeg_start)
+                    # Calculate remaining space safely
+                    remaining = len(data) - mpeg_start
+                    if remaining > 0:
+                        mpeg_data_size = min(10000, remaining)
                     break
                 pos += 1
             
@@ -178,8 +191,9 @@ class FileCarver:
                 mpeg_data_size = 0
             
             total_size = id3_total_size + mpeg_data_size
-            return start_pos + total_size
+            # Ensure we don't exceed data length
+            return min(start_pos + total_size, len(data))
             
         except Exception as e:
-            # If anything goes wrong, return a reasonable default
-            return start_pos + 15000  # Default MP3 size
+            # If anything goes wrong, return a reasonable default within bounds
+            return min(start_pos + 15000, len(data))
