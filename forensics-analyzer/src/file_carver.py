@@ -19,11 +19,11 @@ class FileCarver:
         "txt":  [(b"Forensics Analyzer", None)],
     }
     
-    # Footer sizes - how many bytes to include after finding the footer signature
+    # Footer sizes - how many extra bytes to include after the footer signature
     FOOTER_SIZES = {
-        "zip": 22,   # End of Central Directory record is 22 bytes minimum
-        "docx": 22,  # DOCX is a ZIP file
-        "xlsx": 22,  # XLSX is a ZIP file
+        "zip": 18,   # End of Central Directory record is 22 bytes total (4 sig + 18 extra)
+        "docx": 18,  # DOCX is a ZIP file
+        "xlsx": 18,  # XLSX is a ZIP file
     }
     
     # Maximum file sizes for types without footers (in bytes)
@@ -81,8 +81,8 @@ class FileCarver:
                 if footer_pos != -1:
                     # Include the footer in the file
                     # Check if this file type needs extra bytes after the footer
-                    footer_extra = self.FOOTER_SIZES.get(ext, len(footer))
-                    end_pos = footer_pos + footer_extra
+                    footer_extra = self.FOOTER_SIZES.get(ext, 0)
+                    end_pos = footer_pos + len(footer) + footer_extra
                 else:
                     # Footer not found, skip this header
                     start = start_pos + 1
