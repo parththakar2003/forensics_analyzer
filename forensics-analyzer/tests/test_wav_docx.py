@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import tempfile
 import shutil
+import zipfile
+import io
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
@@ -74,8 +76,6 @@ class TestWavDocxSupport(unittest.TestCase):
         self.assertEqual(docx_data[:4], b'PK\x03\x04')
         
         # Verify it's a valid ZIP with Office structure
-        import zipfile
-        import io
         zip_buffer = io.BytesIO(docx_data)
         with zipfile.ZipFile(zip_buffer, 'r') as zf:
             filenames = zf.namelist()
@@ -96,8 +96,6 @@ class TestWavDocxSupport(unittest.TestCase):
         self.assertEqual(xlsx_data[:4], b'PK\x03\x04')
         
         # Verify it's a valid ZIP with Office structure
-        import zipfile
-        import io
         zip_buffer = io.BytesIO(xlsx_data)
         with zipfile.ZipFile(zip_buffer, 'r') as zf:
             filenames = zf.namelist()

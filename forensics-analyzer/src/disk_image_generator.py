@@ -3,6 +3,8 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 from io import BytesIO
+import zipfile
+import io
 
 class DiskImageGenerator:
     """Generate a synthetic disk image with embedded files"""
@@ -517,9 +519,6 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
     
     def _generate_docx(self, size: int) -> bytes:
         """Generate a minimal valid DOCX file with proper Office structure"""
-        import zipfile
-        import io
-        
         # DOCX is a ZIP file with specific internal structure
         # Required files: [Content_Types].xml, _rels/.rels, word/document.xml
         
@@ -545,9 +544,6 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
     
     def _generate_xlsx(self, size: int) -> bytes:
         """Generate a minimal valid XLSX file with proper Office structure"""
-        import zipfile
-        import io
-        
         # XLSX is a ZIP file with specific internal structure
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:

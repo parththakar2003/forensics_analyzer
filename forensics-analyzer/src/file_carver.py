@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Dict
 import zipfile
 import io
+import struct
 
 class FileCarver:
     """Carve files from disk images using signature analysis"""
@@ -108,7 +109,6 @@ class FileCarver:
                         continue
                     
                     # Get file size from RIFF header (bytes 4-7)
-                    import struct
                     if start_pos + 8 <= len(data):
                         file_size = struct.unpack('<I', data[start_pos + 4:start_pos + 8])[0]
                         # The size in the header is file_size - 8 (excludes RIFF and size field)
