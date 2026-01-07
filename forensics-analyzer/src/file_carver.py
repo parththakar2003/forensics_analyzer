@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import List, Dict
+import zipfile
+import io
+import struct
 
 class FileCarver:
     """Carve files from disk images using signature analysis"""
@@ -12,29 +15,50 @@ class FileCarver:
         "gif":  [(b"GIF89a", b"\x3B"),
                  (b"GIF87a", b"\x3B")],
         "pdf":  [(b"%PDF-", b"%%EOF")],
-        "zip":  [(b"PK\x03\x04", b"PK\x05\x06")],
-        "docx": [(b"PK\x03\x04", b"PK\x05\x06")],
-        "xlsx": [(b"PK\x03\x04", b"PK\x05\x06")],
+        "zip":  [(b"PK\x03\x04", b"PK\x05\x06")],  # Will auto-detect DOCX, XLSX, PPTX
         "mp3":  [(b"ID3\x03", None), (b"ID3\x04", None)],  # ID3v2.3 and ID3v2.4
+        "wav":  [(b"RIFF", None)],  # WAV files use RIFF format
         "txt":  [(b"Forensics Analyzer", None)],
     }
     
     # Footer sizes - how many extra bytes to include after the footer signature
     FOOTER_SIZES = {
         "zip": 18,   # End of Central Directory record is 22 bytes total (4 sig + 18 extra)
-        "docx": 18,  # DOCX is a ZIP file
-        "xlsx": 18,  # XLSX is a ZIP file
     }
     
     # Maximum file sizes for types without footers (in bytes)
     MAX_SIZES = {
         "mp3": 20 * 1024,      # 20KB for test MP3s
+        "wav": 50 * 1024,      # 50KB for test WAV files
         "txt": 1 * 1024,       # 1KB for text files (more realistic for test files)
     }
     
     def __init__(self):
         self.carved_files = []
         self.carved_offsets = set()  # Track offsets to avoid duplicates
+    
+    def _detect_office_format(self, file_data: bytes) -> str:
+        """Detect if a ZIP file is actually a DOCX, XLSX, or PPTX file"""
+        try:
+            # Try to read as ZIP
+            zip_buffer = io.BytesIO(file_data)
+            with zipfile.ZipFile(zip_buffer, 'r') as zf:
+                filenames = zf.namelist()
+                
+                # Check for Office Open XML signatures
+                if '[Content_Types].xml' in filenames:
+                    # This is an Office document
+                    if any('word/' in name for name in filenames):
+                        return 'docx'
+                    elif any('xl/' in name for name in filenames):
+                        return 'xlsx'
+                    elif any('ppt/' in name for name in filenames):
+                        return 'pptx'
+        except:
+            pass
+        
+        # Default to zip if we can't determine
+        return 'zip'
     
     def carve(self, image_path: Path, output_dir: Path, min_size: int = 100) -> List[Dict]:
         """Carve files from disk image"""
@@ -74,9 +98,27 @@ class FileCarver:
             if start_pos == -1:
                 break
             
-            # Find footer
-            end_pos = None
-            if footer:
+            # Special handling for WAV files - verify RIFF/WAVE structure
+            if ext == "wav":
+                # Check if this is actually a WAVE file (RIFF could be other formats)
+                if start_pos + 12 <= len(data):
+                    riff_type = data[start_pos + 8:start_pos + 12]
+                    if riff_type != b'WAVE':
+                        # Not a WAV file, skip this RIFF header
+                        start = start_pos + 1
+                        continue
+                    
+                    # Get file size from RIFF header (bytes 4-7)
+                    file_size = struct.unpack('<I', data[start_pos + 4:start_pos + 8])[0]
+                    # The size in the header is file_size - 8 (excludes RIFF and size field)
+                    end_pos = start_pos + 8 + file_size
+                    # Make sure we don't go beyond the data
+                    end_pos = min(end_pos, len(data))
+                else:
+                    start = start_pos + 1
+                    continue
+            # Find footer for non-WAV files
+            elif footer:
                 footer_pos = data.find(footer, start_pos + len(header))
                 if footer_pos != -1:
                     # Include the footer in the file
@@ -105,7 +147,12 @@ class FileCarver:
             
             # Validate size
             if len(file_data) >= min_size and len(file_data) <= max_file_size:
-                filename = f"{ext}_{len(self.carved_files):06d}.{ext}"
+                # Detect actual file type for ZIP files (could be DOCX, XLSX, etc.)
+                actual_ext = ext
+                if ext == 'zip':
+                    actual_ext = self._detect_office_format(file_data)
+                
+                filename = f"{actual_ext}_{len(self.carved_files):06d}.{actual_ext}"
                 file_path = output_dir / filename
                 
                 try:
@@ -115,7 +162,7 @@ class FileCarver:
                     self.carved_files.append({
                         'name': filename,
                         'size': len(file_data),
-                        'type': ext,
+                        'type': actual_ext,
                         'offset': start_pos,
                         'path': str(file_path)
                     })
@@ -127,5 +174,6 @@ class FileCarver:
                 except Exception as e:
                     print(f"[!] Error writing {filename}: {e}")
             
-            # Move to next potential file
-            start = start_pos + len(header)
+            # Move to next potential file - skip past the entire carved file to avoid
+            # finding embedded headers (e.g., internal files in ZIP archives)
+            start = end_pos if end_pos else start_pos + len(header)
