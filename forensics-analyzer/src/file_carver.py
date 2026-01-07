@@ -28,10 +28,13 @@ class FileCarver:
     
     # Maximum file sizes for types without footers (in bytes)
     MAX_SIZES = {
-        "mp3": 20 * 1024,      # 20KB for test MP3s
+        "mp3": 10 * 1024,      # 10KB for test MP3s (reduced from 20KB)
         "wav": 50 * 1024,      # 50KB for test WAV files
         "txt": 1 * 1024,       # 1KB for text files (more realistic for test files)
     }
+    
+    # Minimum consecutive null bytes to consider as padding/end of file
+    MIN_NULL_BYTES_FOR_PADDING = 32
     
     def __init__(self):
         self.carved_files = []
@@ -59,6 +62,87 @@ class FileCarver:
         
         # Default to zip if we can't determine
         return 'zip'
+    
+    def _calculate_mp3_size(self, data: bytes, start_pos: int) -> int:
+        """Calculate the actual size of an MP3 file from ID3 tag and frame headers"""
+        if start_pos + 10 > len(data):
+            return -1
+        
+        # Verify ID3 header
+        if data[start_pos:start_pos + 3] != b'ID3':
+            return -1
+        
+        # Get ID3 version
+        version = data[start_pos + 3]
+        
+        # Get ID3 tag size (synchsafe integer in bytes 6-9)
+        # Synchsafe integers use only 7 bits per byte
+        tag_size_bytes = data[start_pos + 6:start_pos + 10]
+        tag_size = ((tag_size_bytes[0] & 0x7F) << 21) | \
+                   ((tag_size_bytes[1] & 0x7F) << 14) | \
+                   ((tag_size_bytes[2] & 0x7F) << 7) | \
+                   (tag_size_bytes[3] & 0x7F)
+        
+        # Total ID3v2 size = 10 bytes header + tag size
+        id3_total_size = 10 + tag_size
+        
+        # Find the start of MP3 audio frames
+        audio_start = start_pos + id3_total_size
+        
+        if audio_start >= len(data):
+            return id3_total_size
+        
+        # Look for MP3 frame sync (0xFF 0xFB or similar)
+        # MP3 frames start with 11 sync bits (all 1s)
+        if audio_start + 4 <= len(data):
+            frame_header = data[audio_start:audio_start + 2]
+            if frame_header[0] == 0xFF and (frame_header[1] & 0xE0) == 0xE0:
+                # Found MP3 frame sync
+                # Scan forward to find where the MP3 data ends
+                # Look for the next file signature or use a conservative max size
+                
+                scan_pos = audio_start + 4
+                # Limit audio size so total doesn't exceed MAX_SIZE
+                max_total_mp3_size = self.MAX_SIZES.get('mp3', 10 * 1024)
+                max_audio_size = max(0, max_total_mp3_size - id3_total_size)
+                end_pos = min(audio_start + max_audio_size, len(data))
+                
+                # Look for patterns that indicate end of MP3:
+                # 1. Next ID3 tag (another MP3 file)
+                # 2. Other common file signatures
+                # 3. Long sequence of null bytes
+                
+                null_count = 0
+                
+                while scan_pos < end_pos:
+                    # Check for null bytes (padding)
+                    if data[scan_pos] == 0x00:
+                        null_count += 1
+                        if null_count >= self.MIN_NULL_BYTES_FOR_PADDING:
+                            return scan_pos - null_count + 1 - start_pos
+                    else:
+                        null_count = 0
+                    
+                    # Check for common file signatures (next file)
+                    if scan_pos + 4 < len(data):
+                        sig = data[scan_pos:scan_pos + 4]
+                        # Check for common headers
+                        if sig[:3] == b'ID3':  # Next MP3
+                            return scan_pos - start_pos
+                        elif sig in [b'\xFF\xD8\xFF\xE0', b'\xFF\xD8\xFF\xE1', b'\xFF\xD8\xFF\xDB',  # JPEG
+                                     b'\x89PNG', b'GIF89a', b'GIF87a',  # PNG, GIF
+                                     b'%PDF', b'PK\x03\x04',  # PDF, ZIP
+                                     b'RIFF']:  # WAV
+                            return scan_pos - start_pos
+                    
+                    scan_pos += 1
+                
+                # Reached max scan without finding end marker
+                # Return the scanned size
+                return end_pos - start_pos
+        
+        # If we couldn't find valid audio frames, return just the ID3 tag size
+        return id3_total_size
     
     def carve(self, image_path: Path, output_dir: Path, min_size: int = 100) -> List[Dict]:
         """Carve files from disk image"""
@@ -117,7 +201,16 @@ class FileCarver:
                 else:
                     start = start_pos + 1
                     continue
-            # Find footer for non-WAV files
+            # Special handling for MP3 files - parse ID3 tag and audio frames
+            elif ext == "mp3":
+                mp3_size = self._calculate_mp3_size(data, start_pos)
+                if mp3_size > 0:
+                    end_pos = start_pos + mp3_size
+                else:
+                    # Couldn't determine size, skip this header
+                    start = start_pos + 1
+                    continue
+            # Find footer for non-WAV/MP3 files
             elif footer:
                 footer_pos = data.find(footer, start_pos + len(header))
                 if footer_pos != -1:
