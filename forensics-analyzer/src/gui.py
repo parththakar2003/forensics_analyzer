@@ -239,9 +239,50 @@ class ForensicsAnalyzerGUI:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="  Generate & Carve  ")
         
-        # Left panel - Configuration
-        left_frame = ttk.Frame(tab)
-        left_frame.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        # Left panel - Configuration with scrollbar
+        left_container = ttk.Frame(tab)
+        left_container.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        
+        # Create canvas and scrollbar for scrolling
+        canvas = tk.Canvas(left_container, bg='#1e1e1e', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(left_container, orient='vertical', command=canvas.yview)
+        
+        # Frame inside canvas to hold all content
+        left_frame = ttk.Frame(canvas)
+        
+        # Configure canvas
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack scrollbar and canvas
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+        
+        # Create window in canvas
+        canvas_frame = canvas.create_window((0, 0), window=left_frame, anchor='nw')
+        
+        # Configure canvas scrolling
+        def _configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox('all'))
+            # Update canvas width to match the frame width
+            canvas_width = event.width
+            canvas.itemconfig(canvas_frame, width=canvas_width)
+        
+        left_frame.bind('<Configure>', _configure_scroll)
+        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
+        
+        # Enable mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        # Bind mousewheel to canvas and all child widgets
+        def _bind_to_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_from_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        canvas.bind('<Enter>', _bind_to_mousewheel)
+        canvas.bind('<Leave>', _unbind_from_mousewheel)
         
         # Automated Workflow Section
         auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
@@ -604,7 +645,17 @@ For additional help, issues, and documentation:
         about_tab = ttk.Frame(sub_notebook)
         sub_notebook.add(about_tab, text="About")
         
-        about_frame = ttk.LabelFrame(about_tab, text="About This Application", padding=20)
+        # Add scrolling to about section
+        about_canvas = tk.Canvas(about_tab, bg='#1e1e1e', highlightthickness=0)
+        about_scrollbar = ttk.Scrollbar(about_tab, orient='vertical', command=about_canvas.yview)
+        about_scrollbar.pack(side='right', fill='y')
+        about_canvas.pack(side='left', fill='both', expand=True)
+        about_canvas.configure(yscrollcommand=about_scrollbar.set)
+        
+        about_content = ttk.Frame(about_canvas)
+        about_canvas_frame = about_canvas.create_window((0, 0), window=about_content, anchor='nw')
+        
+        about_frame = ttk.LabelFrame(about_content, text="About This Application", padding=20)
         about_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         about_text = f"""
@@ -671,6 +722,26 @@ and regulations when using this software.
         about_label = ttk.Label(about_frame, text=about_text, justify='left', 
                                font=('Segoe UI', 10))
         about_label.pack()
+        
+        # Configure about canvas scrolling
+        def _configure_about_scroll(event):
+            about_canvas.configure(scrollregion=about_canvas.bbox('all'))
+        
+        about_content.bind('<Configure>', _configure_about_scroll)
+        about_canvas.bind('<Configure>', lambda e: about_canvas.itemconfig(about_canvas_frame, width=e.width))
+        
+        # Enable mousewheel scrolling for about tab
+        def _on_about_mousewheel(event):
+            about_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_about_mousewheel(event):
+            about_canvas.bind_all("<MouseWheel>", _on_about_mousewheel)
+        
+        def _unbind_about_mousewheel(event):
+            about_canvas.unbind_all("<MouseWheel>")
+        
+        about_canvas.bind('<Enter>', _bind_about_mousewheel)
+        about_canvas.bind('<Leave>', _unbind_about_mousewheel)
         
     def create_footer(self):
         """Create footer with status"""
