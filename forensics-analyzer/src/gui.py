@@ -20,6 +20,9 @@ __version__ = "2.0.0"
 __author__ = "Parth Thakar"
 __project__ = "Forensics Analyzer - Major Project"
 
+# Constants for scroll configuration
+WINDOWS_SCROLL_DIVISOR = 120  # Windows mousewheel delta divisor
+
 class ForensicsAnalyzerGUI:
     def __init__(self, root):
         self.root = root
@@ -55,6 +58,61 @@ class ForensicsAnalyzerGUI:
         
         # Keyboard shortcuts
         self.setup_shortcuts()
+        
+    def _setup_scrollable_canvas(self, canvas, canvas_frame, content_frame):
+        """Setup scrolling configuration for a canvas with content.
+        
+        Args:
+            canvas: The canvas widget
+            canvas_frame: The canvas window frame ID
+            content_frame: The frame containing the content
+        """
+        # Configure scroll region when content changes
+        def configure_scroll(event):
+            bbox = canvas.bbox('all')
+            # bbox returns None when canvas is empty, only configure if valid
+            if bbox:
+                canvas.configure(scrollregion=bbox)
+        
+        content_frame.bind('<Configure>', configure_scroll)
+        
+        # Configure canvas width to match window
+        def resize_canvas(event):
+            try:
+                canvas.itemconfig(canvas_frame, width=event.width)
+            except tk.TclError:
+                # Ignore if canvas_frame ID is invalid or canvas has been destroyed
+                pass
+        
+        canvas.bind('<Configure>', resize_canvas)
+        
+        # Add cross-platform mousewheel support
+        self._create_mousewheel_binding(canvas)
+    
+    def _create_mousewheel_binding(self, canvas):
+        """Create cross-platform mousewheel binding for a canvas.
+        
+        Args:
+            canvas: The canvas widget to bind mousewheel scrolling to
+        """
+        def on_mousewheel(event):
+            # Cross-platform mousewheel handling
+            if platform.system() == 'Windows':
+                canvas.yview_scroll(int(-1*(event.delta/WINDOWS_SCROLL_DIVISOR)), "units")
+            elif platform.system() == 'Darwin':  # macOS
+                canvas.yview_scroll(int(-1*event.delta), "units")
+            else:  # Linux
+                if event.num == 4:
+                    canvas.yview_scroll(-1, "units")
+                elif event.num == 5:
+                    canvas.yview_scroll(1, "units")
+        
+        # Bind mousewheel events based on platform
+        if platform.system() == 'Linux':
+            canvas.bind("<Button-4>", on_mousewheel)
+            canvas.bind("<Button-5>", on_mousewheel)
+        else:
+            canvas.bind("<MouseWheel>", on_mousewheel)
         
     def setup_styles(self):
         """Configure ttk styles"""
@@ -239,9 +297,29 @@ class ForensicsAnalyzerGUI:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="  Generate & Carve  ")
         
-        # Left panel - Configuration
-        left_frame = ttk.Frame(tab)
-        left_frame.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        # Left panel - Configuration with scrollbar
+        left_container = ttk.Frame(tab)
+        left_container.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        
+        # Create canvas and scrollbar for scrolling
+        canvas = tk.Canvas(left_container, bg='#1e1e1e', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(left_container, orient='vertical', command=canvas.yview)
+        
+        # Frame inside canvas to hold all content
+        left_frame = ttk.Frame(canvas)
+        
+        # Configure canvas
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack scrollbar and canvas
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+        
+        # Create window in canvas
+        canvas_frame = canvas.create_window((0, 0), window=left_frame, anchor='nw')
+        
+        # Setup scrolling and mousewheel support
+        self._setup_scrollable_canvas(canvas, canvas_frame, left_frame)
         
         # Automated Workflow Section
         auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
@@ -604,7 +682,17 @@ For additional help, issues, and documentation:
         about_tab = ttk.Frame(sub_notebook)
         sub_notebook.add(about_tab, text="About")
         
-        about_frame = ttk.LabelFrame(about_tab, text="About This Application", padding=20)
+        # Add scrolling to about section
+        about_canvas = tk.Canvas(about_tab, bg='#1e1e1e', highlightthickness=0)
+        about_scrollbar = ttk.Scrollbar(about_tab, orient='vertical', command=about_canvas.yview)
+        about_scrollbar.pack(side='right', fill='y')
+        about_canvas.pack(side='left', fill='both', expand=True)
+        about_canvas.configure(yscrollcommand=about_scrollbar.set)
+        
+        about_content = ttk.Frame(about_canvas)
+        about_canvas_frame = about_canvas.create_window((0, 0), window=about_content, anchor='nw')
+        
+        about_frame = ttk.LabelFrame(about_content, text="About This Application", padding=20)
         about_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         about_text = f"""
@@ -671,6 +759,9 @@ and regulations when using this software.
         about_label = ttk.Label(about_frame, text=about_text, justify='left', 
                                font=('Segoe UI', 10))
         about_label.pack()
+        
+        # Setup scrolling and mousewheel support
+        self._setup_scrollable_canvas(about_canvas, about_canvas_frame, about_content)
         
     def create_footer(self):
         """Create footer with status"""

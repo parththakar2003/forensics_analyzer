@@ -48,6 +48,7 @@ This is a comprehensive forensics analysis tool developed as a major academic pr
   - Verifies integrity and matches with originals
   - Provides comprehensive statistics and report
   - Option to include subdirectories (recursive)
+  - **Scrollable panel**: Easily navigate through all options with mousewheel support
 
 - **Generate Disk Image** (Manual Mode): Create test disk images with embedded files
   - Configure image size
@@ -90,7 +91,9 @@ This is a comprehensive forensics analysis tool developed as a major academic pr
   - Keyboard shortcuts reference
   - Tips and best practices
   - Troubleshooting guide
+  - Scrollable with mousewheel support
 - **About**: Version information and credits
+  - Scrollable content for easy reading
 
 ## 📦 Installation
 
