@@ -70,6 +70,15 @@ class FileCarver:
                 # No footer defined - use special handling or reasonable defaults
                 if ext == "mp3":
                     # Special handling for MP3 files with ID3 tags
+                    # Validate ID3 header before processing
+                    if start_pos + 10 <= len(data):
+                        id3_header = data[start_pos:start_pos + 10]
+                        # Check ID3 version (should be 2.x, 3.x, or 4.x)
+                        version_major = id3_header[3]
+                        if version_major < 2 or version_major > 4:
+                            # Invalid ID3 version, skip this occurrence
+                            start = start_pos + 1
+                            continue
                     end_pos = self._calculate_mp3_size(data, start_pos)
                 elif ext == "txt":
                     # For text files, use a reasonable max size
@@ -128,8 +137,15 @@ class FileCarver:
             # Read ID3 header
             id3_header = data[start_pos:start_pos + 10]
             
-            # Verify it's ID3
+            # Verify it's ID3 with valid version
             if id3_header[:3] != b'ID3':
+                return start_pos + 10000  # Default fallback
+            
+            # Check ID3 version (should be 2.x, 3.x, or 4.x)
+            version_major = id3_header[3]
+            version_minor = id3_header[4]
+            if version_major > 4 or version_major < 2:
+                # Invalid version, likely false positive
                 return start_pos + 10000  # Default fallback
             
             # Decode synchsafe integer for tag size
@@ -138,6 +154,10 @@ class FileCarver:
                        ((size_bytes[1] & 0x7F) << 14) | \
                        ((size_bytes[2] & 0x7F) << 7) | \
                        (size_bytes[3] & 0x7F)
+            
+            # Sanity check on tag size (should be reasonable, not too large)
+            if tag_size > 10 * 1024 * 1024:  # 10MB is too large for ID3 tag
+                return start_pos + 10000  # Default fallback
             
             # ID3 header is 10 bytes + tag size
             id3_total_size = 10 + tag_size
