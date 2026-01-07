@@ -33,6 +33,9 @@ class FileCarver:
         "txt": 1 * 1024,       # 1KB for text files (more realistic for test files)
     }
     
+    # Minimum consecutive null bytes to consider as padding/end of file
+    MIN_NULL_BYTES_FOR_PADDING = 32
+    
     def __init__(self):
         self.carved_files = []
         self.carved_offsets = set()  # Track offsets to avoid duplicates
@@ -100,7 +103,7 @@ class FileCarver:
                 
                 scan_pos = audio_start + 4
                 # Limit audio size so total doesn't exceed MAX_SIZE
-                max_total_mp3_size = 10 * 1024  # 10KB total including ID3
+                max_total_mp3_size = self.MAX_SIZES.get('mp3', 10 * 1024)
                 max_audio_size = max(0, max_total_mp3_size - id3_total_size)
                 end_pos = min(audio_start + max_audio_size, len(data))
                 
@@ -115,7 +118,7 @@ class FileCarver:
                     # Check for null bytes (padding)
                     if data[scan_pos] == 0x00:
                         null_count += 1
-                        if null_count >= 32:  # Found padding - likely end of file
+                        if null_count >= self.MIN_NULL_BYTES_FOR_PADDING:
                             return scan_pos - null_count + 1 - start_pos
                     else:
                         null_count = 0
@@ -127,7 +130,7 @@ class FileCarver:
                         if sig[:3] == b'ID3':  # Next MP3
                             return scan_pos - start_pos
                         elif sig in [b'\xFF\xD8\xFF\xE0', b'\xFF\xD8\xFF\xE1', b'\xFF\xD8\xFF\xDB',  # JPEG
-                                     b'\x89PNG', b'GIF8', b'GIF8',  # PNG, GIF
+                                     b'\x89PNG', b'GIF89a', b'GIF87a',  # PNG, GIF
                                      b'%PDF', b'PK\x03\x04',  # PDF, ZIP
                                      b'RIFF']:  # WAV
                             return scan_pos - start_pos
