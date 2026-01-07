@@ -31,19 +31,20 @@ class DiskImageGenerator:
         
         for idx, file_spec in enumerate(self.files_to_embed):
             file_type = file_spec.get('type', 'txt')
+            file_name = file_spec.get('name', f'{file_type}_file_{idx+1}')
             
             try:
                 file_data = self._generate_file_data(file_spec)
                 
                 if offset + len(file_data) < total_size:
                     image_data[offset:offset+len(file_data)] = file_data
-                    print(f"[+] Embedded {file_type} file #{idx+1} at offset {offset} ({len(file_data)} bytes)")
+                    print(f"[+] Embedded {file_name} at offset {offset} ({len(file_data)} bytes)")
                     offset += len(file_data) + random.randint(5000, 10000)
                 else:
-                    print(f"[!] Not enough space for {file_type} file")
+                    print(f"[!] Not enough space for {file_name}")
                     
             except Exception as e:
-                print(f"[!] Error embedding {file_type}: {e}")
+                print(f"[!] Error embedding {file_name}: {e}")
         
         print(f"[*] Writing disk image to {output_path}...")
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,8 +54,56 @@ class DiskImageGenerator:
         
         print(f"[+] Disk image created successfully ({output_path.stat().st_size:,} bytes)")
     
+    def add_real_file(self, file_path: Path):
+        """Add a real file from the filesystem to embed in the disk image"""
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+        
+        self.files_to_embed.append({
+            'type': 'real',
+            'path': file_path,
+            'data': file_data,
+            'name': file_path.name
+        })
+    
+    def add_files_from_directory(self, dir_path: Path, recursive: bool = False):
+        """Add all files from a directory to embed in the disk image"""
+        if not dir_path.exists() or not dir_path.is_dir():
+            raise NotADirectoryError(f"Directory not found: {dir_path}")
+        
+        pattern = '**/*' if recursive else '*'
+        for file_path in dir_path.glob(pattern):
+            if file_path.is_file():
+                try:
+                    self.add_real_file(file_path)
+                    print(f"[+] Added file: {file_path.name} ({file_path.stat().st_size:,} bytes)")
+                except Exception as e:
+                    print(f"[!] Error adding {file_path.name}: {e}")
+    
+    def calculate_required_size(self, padding_mb: int = 5) -> int:
+        """Calculate required disk image size in MB based on files to embed"""
+        total_bytes = sum(
+            len(f.get('data', b'')) if 'data' in f else f.get('size', 10000)
+            for f in self.files_to_embed
+        )
+        # Add padding for random data and spacing between files
+        total_bytes += len(self.files_to_embed) * 10000  # Space between files
+        total_bytes += 10000  # Initial offset
+        total_bytes += padding_mb * 1024 * 1024  # Additional padding
+        
+        # Round up to nearest MB
+        size_mb = (total_bytes + 1024 * 1024 - 1) // (1024 * 1024)
+        return max(size_mb, 1)  # At least 1 MB
+    
     def _generate_file_data(self, file_spec: Dict[str, Any]) -> bytes:
         """Generate proper file data based on specification"""
+        # Handle real files
+        if file_spec.get('type') == 'real':
+            return file_spec.get('data', b'')
+        
         file_type = file_spec.get('type', 'txt')
         size = file_spec.get('size', 10000)
         content = file_spec.get('content', None)
