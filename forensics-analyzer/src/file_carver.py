@@ -6,6 +6,8 @@ class FileCarver:
     
     # Constants for MP3 size detection
     DEFAULT_MP3_SIZE = 10000  # Default size for MP3 files when exact size cannot be determined
+    MAX_ID3_TAG_SIZE = 10 * 1024 * 1024  # 10MB maximum ID3 tag size
+    MPEG_SEARCH_WINDOW = 500  # Bytes to search for MPEG frame sync after ID3 tag
     
     SIGNATURES = {
         "jpg":  [(b"\xFF\xD8\xFF\xE0", b"\xFF\xD9"),
@@ -122,7 +124,8 @@ class FileCarver:
             
             # Move to next potential file
             # Skip past the entire carved file to avoid finding overlapping signatures
-            if end_pos is not None and len(file_data) >= min_size and len(file_data) <= max_file_size:
+            file_size = len(file_data)
+            if end_pos is not None and file_size >= min_size and file_size <= max_file_size:
                 start = end_pos
             else:
                 start = start_pos + len(header)
@@ -156,7 +159,7 @@ class FileCarver:
                        (size_bytes[3] & 0x7F)
             
             # Sanity check on tag size (should be reasonable, not too large)
-            if tag_size > 10 * 1024 * 1024:  # 10MB is too large for ID3 tag
+            if tag_size > self.MAX_ID3_TAG_SIZE:
                 return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
             
             # ID3 header is 10 bytes + tag size
@@ -171,7 +174,7 @@ class FileCarver:
                 return min(start_pos + id3_total_size, len(data))
             
             # Look for MPEG frame sync in the next few hundred bytes
-            max_search = min(mpeg_start + 500, len(data))
+            max_search = min(mpeg_start + self.MPEG_SEARCH_WINDOW, len(data))
             mpeg_data_size = 0
             
             # Simple approach: look for consecutive MPEG frame headers
