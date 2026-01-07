@@ -56,6 +56,31 @@ class ForensicsAnalyzerGUI:
         # Keyboard shortcuts
         self.setup_shortcuts()
         
+    def _create_mousewheel_binding(self, canvas):
+        """Create cross-platform mousewheel binding for a canvas.
+        
+        Args:
+            canvas: The canvas widget to bind mousewheel scrolling to
+        """
+        def on_mousewheel(event):
+            # Cross-platform mousewheel handling
+            if platform.system() == 'Windows':
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            elif platform.system() == 'Darwin':  # macOS
+                canvas.yview_scroll(int(-1*event.delta), "units")
+            else:  # Linux
+                if event.num == 4:
+                    canvas.yview_scroll(-1, "units")
+                elif event.num == 5:
+                    canvas.yview_scroll(1, "units")
+        
+        # Bind mousewheel events based on platform
+        if platform.system() == 'Linux':
+            canvas.bind("<Button-4>", on_mousewheel)
+            canvas.bind("<Button-5>", on_mousewheel)
+        else:
+            canvas.bind("<MouseWheel>", on_mousewheel)
+        
     def setup_styles(self):
         """Configure ttk styles"""
         style = ttk.Style()
@@ -267,12 +292,8 @@ class ForensicsAnalyzerGUI:
         left_frame.bind('<Configure>', _configure_scroll)
         canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
         
-        # Enable mousewheel scrolling
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        # Bind mousewheel to canvas (not bind_all to avoid conflicts)
-        canvas.bind("<MouseWheel>", _on_mousewheel)
+        # Enable cross-platform mousewheel scrolling
+        self._create_mousewheel_binding(canvas)
         
         # Automated Workflow Section
         auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
@@ -720,11 +741,8 @@ and regulations when using this software.
         about_content.bind('<Configure>', _configure_about_scroll)
         about_canvas.bind('<Configure>', lambda e: about_canvas.itemconfig(about_canvas_frame, width=e.width))
         
-        # Enable mousewheel scrolling for about tab (bound to canvas only)
-        def _on_about_mousewheel(event):
-            about_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        about_canvas.bind("<MouseWheel>", _on_about_mousewheel)
+        # Enable cross-platform mousewheel scrolling
+        self._create_mousewheel_binding(about_canvas)
         
     def create_footer(self):
         """Create footer with status"""
