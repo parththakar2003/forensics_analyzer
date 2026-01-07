@@ -70,7 +70,8 @@ class ForensicsAnalyzerGUI:
         # Configure scroll region when content changes
         def configure_scroll(event):
             bbox = canvas.bbox('all')
-            if bbox:  # Only configure if bbox is valid
+            # bbox returns None when canvas is empty, only configure if valid
+            if bbox:
                 canvas.configure(scrollregion=bbox)
         
         content_frame.bind('<Configure>', configure_scroll)
@@ -80,7 +81,8 @@ class ForensicsAnalyzerGUI:
             try:
                 canvas.itemconfig(canvas_frame, width=event.width)
             except tk.TclError:
-                pass  # Ignore if canvas_frame doesn't exist
+                # Ignore if canvas_frame ID is invalid or canvas has been destroyed
+                pass
         
         canvas.bind('<Configure>', resize_canvas)
         
