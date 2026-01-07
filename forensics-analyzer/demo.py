@@ -102,11 +102,11 @@ def main():
     
     print(f"\n🔍 Analyzing: {disk_image_path.name}")
     print(f"   Input size: {disk_image_path.stat().st_size:,} bytes")
-    print(f"   Min file size: 512 bytes")
+    print(f"   Min file size: 100 bytes")
     
     print("\n⏳ Carving in progress...")
     start_time = time.time()
-    carved_files = carver.carve(disk_image_path, carved_dir, min_size=512)
+    carved_files = carver.carve(disk_image_path, carved_dir, min_size=100)
     elapsed = time.time() - start_time
     
     print(f"\n✅ Carving complete!")

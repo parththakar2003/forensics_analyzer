@@ -231,6 +231,26 @@ class DiskImageGenerator:
         data.extend(b'\x00\x00\x00')  # Black
         data.extend(b'\xFF\xFF\xFF')  # White
         
+        # Add comment extension to pad file size if needed
+        current_size = len(data)
+        if size > current_size + 50:  # Need padding
+            # Comment Extension
+            data.extend(b'\x21')  # Extension Introducer
+            data.extend(b'\xFE')  # Comment Label
+            
+            # Calculate comment size
+            comment_size = size - current_size - 10  # Reserve space for image data and trailer
+            
+            # Split into blocks of max 255 bytes
+            while comment_size > 0:
+                block_size = min(255, comment_size)
+                data.extend(bytes([block_size]))
+                comment_data = (b'Forensic test data ' * (block_size // 19 + 1))[:block_size]
+                data.extend(comment_data)
+                comment_size -= block_size
+            
+            data.extend(b'\x00')  # Block Terminator
+        
         # Image Descriptor
         data.extend(b'\x2C')
         data.extend(b'\x00\x00\x00\x00')  # Left, Top
