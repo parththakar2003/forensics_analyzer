@@ -80,14 +80,6 @@ class FileCarver:
                             start = start_pos + 1
                             continue
                     end_pos = self._calculate_mp3_size(data, start_pos)
-                elif ext == "txt":
-                    # For text files, use a reasonable max size
-                    next_header_pos = data.find(header, start_pos + len(header))
-                    if next_header_pos != -1:
-                        end_pos = next_header_pos
-                    else:
-                        # Use smaller max size for text files
-                        end_pos = min(start_pos + 100 * 1024, len(data))
                 else:
                     # Default behavior: look for next header or use max size
                     next_header_pos = data.find(header, start_pos + len(header))
@@ -143,7 +135,6 @@ class FileCarver:
             
             # Check ID3 version (should be 2.x, 3.x, or 4.x)
             version_major = id3_header[3]
-            version_minor = id3_header[4]
             if version_major > 4 or version_major < 2:
                 # Invalid version, likely false positive
                 return start_pos + 10000  # Default fallback
