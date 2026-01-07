@@ -7,6 +7,7 @@ A comprehensive and professional digital forensics and file carving analysis too
 This is a comprehensive forensics analysis tool developed as a major academic project with the following professional features:
 
 ### Core Capabilities
+- 🚀 **Automated Workflow**: Complete end-to-end forensics workflow with one click
 - 🔧 **Disk Image Generation**: Create synthetic disk images with embedded files for testing
 - 🔪 **Advanced File Carving**: Signature-based file extraction from disk images
 - 📊 **File Analysis & Parsing**: Validate and analyze carved files with detailed metadata
@@ -15,6 +16,9 @@ This is a comprehensive forensics analysis tool developed as a major academic pr
 - 📈 **Comprehensive Reporting**: Export reports in JSON, TXT, and HTML formats
 
 ### Advanced Features
+- ⚡ **Auto-Calculate Image Size**: Automatically calculate required disk image size based on source files
+- 📁 **Real File Embedding**: Embed actual files from your filesystem into disk images
+- ✅ **Automatic Verification**: Verify that carved files match originals and are not corrupted
 - 🔐 **Hash Calculation**: MD5 and SHA-256 hash generation for evidence integrity
 - 🔍 **File Preview**: Built-in file preview capability
 - 🔎 **Search & Filter**: Search and filter results in real-time
@@ -34,13 +38,24 @@ This is a comprehensive forensics analysis tool developed as a major academic pr
 - **Status Bar**: Current operation status at a glance
 
 ### Tab 1: Generate & Carve
-- **Generate Disk Image**: Create test disk images with embedded files
+
+- **🚀 Automated Workflow (Recommended)**: Complete one-click solution
+  - Select source directory or file
+  - Automatically calculates required disk image size
+  - Creates .dd disk image with proper size
+  - Embeds real files from source path
+  - Carves files from generated image
+  - Verifies integrity and matches with originals
+  - Provides comprehensive statistics and report
+  - Option to include subdirectories (recursive)
+
+- **Generate Disk Image** (Manual Mode): Create test disk images with embedded files
   - Configure image size
   - Select file types to embed (JPG, PNG, PDF, TXT, DOCX, MP3)
   - Custom output path
   - Progress indication
 
-- **Carve Files**: Extract files from disk images
+- **Carve Files** (Manual Mode): Extract files from disk images
   - Select input disk image
   - Configure output directory
   - Set minimum file size threshold
@@ -111,9 +126,53 @@ Or use the launcher:
 python src/main_gui.py
 ```
 
-### CLI Mode
+#### Automated Workflow (One-Click Solution)
 
-For command-line usage:
+The easiest way to use the forensics analyzer:
+
+1. **Launch the GUI** application
+2. **Go to the "Generate & Carve" tab**
+3. **Use the "Automated Workflow" section** at the top:
+   - Click "Browse" next to "Source Path" and select a directory or file
+   - Choose where to save results (Output Directory)
+   - Optionally enable "Include subdirectories" for recursive processing
+   - Click **"⚡ Run Complete Workflow"**
+
+The automated workflow will:
+- ✅ Analyze your source files and calculate required disk image size
+- ✅ Create a .dd disk image with proper size
+- ✅ Embed all files from your source path into the image
+- ✅ Carve files from the generated disk image
+- ✅ Verify that carved files match originals and are not corrupted
+- ✅ Generate comprehensive statistics and report
+
+#### Manual Mode (Advanced)
+
+For more control over each step:
+
+1. **Generate Disk Image**: Create a disk image with synthetic test files
+2. **Carve Files**: Extract files from the disk image
+3. **View Results**: Analyze carved files in the Results tab
+4. **Export Reports**: Save your analysis in JSON, TXT, or HTML format
+
+### CLI Mode (Automated Workflow)
+
+For command-line usage with the automated workflow:
+
+```bash
+# Process a directory
+python src/automated_workflow.py /path/to/source /path/to/output
+
+# Process with recursive subdirectories
+python src/automated_workflow.py /path/to/source /path/to/output --recursive
+
+# Process a single file
+python src/automated_workflow.py /path/to/file.jpg /path/to/output
+```
+
+### CLI Mode (Manual Steps)
+
+For traditional step-by-step CLI usage:
 
 ```bash
 python src/main.py
@@ -191,6 +250,19 @@ python src/main.py
 
 ## 📁 Output Structure
 
+### Automated Workflow Output
+```
+output/
+├── automated/                  # Automated workflow output
+│   ├── generated_evidence.dd  # Generated disk image
+│   ├── carved_files/          # Carved files directory
+│   │   ├── jpg_000000.jpg
+│   │   ├── pdf_000001.pdf
+│   │   └── ...
+│   └── workflow_results.json  # Comprehensive workflow report
+```
+
+### Manual Mode Output
 ```
 forensics-analyzer/
 ├── evidence/
@@ -252,6 +324,53 @@ forensics-analyzer/
 - Color-coded validation status
 - Interactive layout
 - Suitable for presentations
+
+## 💡 Example Use Cases
+
+### Use Case 1: Forensic Analysis of Evidence
+**Scenario**: You have a directory of files that need forensic analysis and evidence preservation.
+
+**Steps**:
+1. Launch GUI: `python src/gui.py`
+2. Go to "Generate & Carve" tab
+3. Click "Browse" next to "Source Path" and select your evidence directory
+4. Click "⚡ Run Complete Workflow"
+5. Review results showing:
+   - Original files analyzed with MD5 hashes
+   - Disk image created with proper size
+   - Files carved and verified
+   - Recovery and validation rates
+   - All carved files confirmed to open correctly
+
+**Output**: Complete forensic report with 100% validation rate proving files are not corrupted
+
+### Use Case 2: Testing File Recovery Tools
+**Scenario**: You want to test file carving capabilities with real files.
+
+**Steps**:
+```bash
+# Use CLI for batch processing
+python src/automated_workflow.py /path/to/test/files /path/to/results --recursive
+```
+
+**Result**: Automated analysis showing which file types can be successfully recovered
+
+### Use Case 3: Creating Evidence Images
+**Scenario**: Create a disk image from a directory for teaching or testing.
+
+**GUI Steps**:
+1. Select source directory with files
+2. Run automated workflow
+3. Use generated .dd file: `output/automated/generated_evidence.dd`
+4. Share for training purposes
+
+**CLI Alternative**:
+```python
+from automated_workflow import AutomatedForensicsWorkflow
+workflow = AutomatedForensicsWorkflow()
+results = workflow.run_complete_workflow("source_dir", "output_dir")
+print(f"Recovery rate: {results['statistics']['recovery_rate']}%")
+```
 
 ## 🔒 Hash Calculation
 

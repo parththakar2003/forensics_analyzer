@@ -14,6 +14,7 @@ from file_carver import FileCarver
 from file_parser import FileParser
 from binwalk_analyzer import BinwalkAnalyzer
 from verify_files import verify_file
+from automated_workflow import AutomatedForensicsWorkflow
 
 __version__ = "2.0.0"
 __author__ = "Parth Thakar"
@@ -241,6 +242,50 @@ class ForensicsAnalyzerGUI:
         # Left panel - Configuration
         left_frame = ttk.Frame(tab)
         left_frame.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        
+        # Automated Workflow Section
+        auto_frame = ttk.LabelFrame(left_frame, text="🚀 Automated Workflow (Recommended)", padding=15)
+        auto_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(auto_frame, text="Source Path:", font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=5)
+        self.auto_source_var = tk.StringVar(value="")
+        auto_source_entry = ttk.Entry(auto_frame, textvariable=self.auto_source_var, width=40)
+        auto_source_entry.grid(row=0, column=1, sticky='ew', pady=5, padx=5)
+        
+        browse_source_btn = ttk.Button(auto_frame, text="Browse", command=self.browse_auto_source)
+        browse_source_btn.grid(row=0, column=2, pady=5, padx=5)
+        
+        ttk.Label(auto_frame, text="Output Directory:", font=('Segoe UI', 10, 'bold')).grid(row=1, column=0, sticky='w', pady=5)
+        self.auto_output_var = tk.StringVar(value=str(self.base_dir / "output" / "automated"))
+        auto_output_entry = ttk.Entry(auto_frame, textvariable=self.auto_output_var, width=40)
+        auto_output_entry.grid(row=1, column=1, sticky='ew', pady=5, padx=5)
+        
+        browse_auto_out_btn = ttk.Button(auto_frame, text="Browse", command=self.browse_auto_output)
+        browse_auto_out_btn.grid(row=1, column=2, pady=5, padx=5)
+        
+        self.recursive_var = tk.BooleanVar(value=False)
+        recursive_cb = ttk.Checkbutton(auto_frame, text="Include subdirectories (recursive)", 
+                                       variable=self.recursive_var)
+        recursive_cb.grid(row=2, column=1, sticky='w', pady=5, padx=5)
+        
+        auto_btn = ttk.Button(auto_frame, text="⚡ Run Complete Workflow", 
+                             command=self.run_automated_workflow, style='Accent.TButton')
+        auto_btn.grid(row=3, column=0, columnspan=3, pady=10, sticky='ew')
+        
+        # Info label
+        info_label = ttk.Label(auto_frame, 
+                              text="Automatically: Calculate size → Create .dd → Embed files → Carve → Verify",
+                              font=('Segoe UI', 9), foreground='#00bcd4')
+        info_label.grid(row=4, column=0, columnspan=3, pady=5)
+        
+        auto_frame.columnconfigure(1, weight=1)
+        
+        # Separator
+        sep = ttk.Separator(left_frame, orient='horizontal')
+        sep.pack(fill='x', pady=15)
+        
+        ttk.Label(left_frame, text="Manual Mode (Advanced)", 
+                 font=('Segoe UI', 11, 'bold'), foreground='#b0b0b0').pack(anchor='w', pady=5)
         
         # Generate Section
         generate_frame = ttk.LabelFrame(left_frame, text="Step 1: Generate Disk Image", padding=15)
@@ -659,6 +704,21 @@ and regulations when using this software.
         dirname = filedialog.askdirectory()
         if dirname:
             self.carve_output_var.set(dirname)
+    
+    def browse_auto_source(self):
+        """Browse for automated workflow source path"""
+        path = filedialog.askdirectory(title="Select Source Directory")
+        if not path:
+            # Try file selection if directory not selected
+            path = filedialog.askopenfilename(title="Select Source File")
+        if path:
+            self.auto_source_var.set(path)
+    
+    def browse_auto_output(self):
+        """Browse for automated workflow output directory"""
+        dirname = filedialog.askdirectory(title="Select Output Directory")
+        if dirname:
+            self.auto_output_var.set(dirname)
             
     def log(self, message):
         """Log message to console"""
@@ -792,6 +852,113 @@ and regulations when using this software.
                 self.progress.stop()
                 self.carve_btn.config(state='normal')
                 
+        threading.Thread(target=task, daemon=True).start()
+    
+    def run_automated_workflow(self):
+        """Run the complete automated workflow"""
+        if self.is_running:
+            messagebox.showwarning("Busy", "Another operation is in progress!")
+            return
+        
+        source_path = self.auto_source_var.get()
+        if not source_path:
+            messagebox.showwarning("Missing Input", "Please select a source path (directory or file)")
+            return
+        
+        if not Path(source_path).exists():
+            messagebox.showerror("Error", f"Source path not found: {source_path}")
+            return
+        
+        self.is_running = True
+        self.progress.start()
+        
+        def task():
+            try:
+                self.log("=" * 70)
+                self.log("  AUTOMATED FORENSICS WORKFLOW")
+                self.log("=" * 70)
+                
+                workflow = AutomatedForensicsWorkflow()
+                
+                # Redirect workflow output to GUI console
+                import sys
+                from io import StringIO
+                
+                # Create custom print function
+                original_print = print
+                def gui_print(*args, **kwargs):
+                    message = ' '.join(str(arg) for arg in args)
+                    self.log(message)
+                    original_print(*args, **kwargs)
+                
+                # Temporarily replace print
+                import builtins
+                builtins.print = gui_print
+                
+                try:
+                    output_dir = self.auto_output_var.get()
+                    recursive = self.recursive_var.get()
+                    
+                    # Run workflow
+                    results = workflow.run_complete_workflow(
+                        Path(source_path),
+                        Path(output_dir) if output_dir else None,
+                        recursive=recursive
+                    )
+                    
+                    # Update UI with results
+                    if results['status'] == 'completed':
+                        stats = results['statistics']
+                        
+                        self.log("\n" + "=" * 70)
+                        self.log("  WORKFLOW COMPLETED SUCCESSFULLY")
+                        self.log("=" * 70)
+                        
+                        # Save detailed results
+                        results_file = Path(output_dir) / "workflow_results.json"
+                        with open(results_file, 'w') as f:
+                            json.dump(results, f, indent=2)
+                        
+                        self.log(f"\n[✓] Results saved to: {results_file}")
+                        
+                        # Update status
+                        self.update_status("Automated workflow completed successfully")
+                        
+                        # Show summary dialog
+                        summary = (
+                            f"Workflow completed successfully!\n\n"
+                            f"Original Files: {stats.get('total_original_files', 0)}\n"
+                            f"Carved Files: {stats.get('total_carved_files', 0)}\n"
+                            f"Verified Files: {stats.get('verified_count', 0)}\n"
+                            f"Failed Files: {stats.get('failed_count', 0)}\n\n"
+                            f"Recovery Rate: {stats.get('recovery_rate', 0):.1f}%\n"
+                            f"Validation Rate: {stats.get('validation_rate', 0):.1f}%\n\n"
+                            f"Output: {output_dir}"
+                        )
+                        
+                        messagebox.showinfo("Workflow Complete", summary)
+                        
+                        # Update results tab with carved files
+                        self.carve_output_var.set(str(Path(output_dir) / "carved_files"))
+                        self.refresh_results()
+                    else:
+                        error_msg = results.get('error', 'Unknown error')
+                        self.log(f"\n[!] Workflow failed: {error_msg}")
+                        messagebox.showerror("Workflow Failed", error_msg)
+                        
+                finally:
+                    # Restore original print
+                    builtins.print = original_print
+                    
+            except Exception as e:
+                self.log(f"\n[!] Error: {str(e)}")
+                messagebox.showerror("Error", str(e))
+                import traceback
+                traceback.print_exc()
+            finally:
+                self.is_running = False
+                self.progress.stop()
+        
         threading.Thread(target=task, daemon=True).start()
         
     def run_binwalk(self):
