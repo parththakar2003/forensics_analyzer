@@ -4,6 +4,9 @@ from typing import List, Dict
 class FileCarver:
     """Carve files from disk images using signature analysis"""
     
+    # Constants for MP3 size detection
+    DEFAULT_MP3_SIZE = 10000  # Default size for MP3 files when exact size cannot be determined
+    
     SIGNATURES = {
         "jpg":  [(b"\xFF\xD8\xFF\xE0", b"\xFF\xD9"),
                  (b"\xFF\xD8\xFF\xE1", b"\xFF\xD9"),
@@ -119,7 +122,7 @@ class FileCarver:
             
             # Move to next potential file
             # Skip past the entire carved file to avoid finding overlapping signatures
-            if end_pos and len(file_data) >= min_size and len(file_data) <= max_file_size:
+            if end_pos is not None and len(file_data) >= min_size and len(file_data) <= max_file_size:
                 start = end_pos
             else:
                 start = start_pos + len(header)
@@ -130,20 +133,20 @@ class FileCarver:
         try:
             # Check if we have enough data for ID3 header (already validated by caller)
             if start_pos + 10 > len(data):
-                return min(start_pos + 10000, len(data))
+                return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
             
             # Read ID3 header
             id3_header = data[start_pos:start_pos + 10]
             
             # Verify it's ID3 with valid version (redundant check for safety)
             if id3_header[:3] != b'ID3':
-                return min(start_pos + 10000, len(data))
+                return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
             
             # Check ID3 version (should be 2.x, 3.x, or 4.x)
             version_major = id3_header[3]
             if version_major > 4 or version_major < 2:
                 # Invalid version, likely false positive
-                return min(start_pos + 10000, len(data))
+                return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
             
             # Decode synchsafe integer for tag size
             size_bytes = id3_header[6:10]
@@ -154,7 +157,7 @@ class FileCarver:
             
             # Sanity check on tag size (should be reasonable, not too large)
             if tag_size > 10 * 1024 * 1024:  # 10MB is too large for ID3 tag
-                return min(start_pos + 10000, len(data))
+                return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
             
             # ID3 header is 10 bytes + tag size
             id3_total_size = 10 + tag_size
@@ -182,7 +185,7 @@ class FileCarver:
                     # Calculate remaining space safely
                     remaining = len(data) - mpeg_start
                     if remaining > 0:
-                        mpeg_data_size = min(10000, remaining)
+                        mpeg_data_size = min(self.DEFAULT_MP3_SIZE, remaining)
                     break
                 pos += 1
             
@@ -196,4 +199,4 @@ class FileCarver:
             
         except Exception as e:
             # If anything goes wrong, return a reasonable default within bounds
-            return min(start_pos + 15000, len(data))
+            return min(start_pos + self.DEFAULT_MP3_SIZE, len(data))
